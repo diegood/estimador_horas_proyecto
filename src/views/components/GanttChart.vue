@@ -5,88 +5,112 @@
 </template>
 
 <script setup>
-import { onMounted, ref, watch } from 'vue'
+import { onMounted, ref, watch, onBeforeUnmount } from 'vue'
 import Chart from 'chart.js/auto'
 import ChartDataLabels from 'chartjs-plugin-datalabels'
+import 'chartjs-adapter-date-fns'  // Importa el adaptador de fechas
 
 const props = defineProps({
   functionalities: Array,
   startDate: String
 })
 
-const ganttChart = ref(null)
+let ganttChartInstance = null; // Mantiene una referencia al gráfico
 
-onMounted(() => {
-  if (ganttChart.value) {
-    const ctx = document.getElementById('ganttChart').getContext('2d')
+const renderGanttChart = () => {
+  const ctx = document.getElementById('ganttChart').getContext('2d')
 
-    const datasets = props.functionalities.map((functionality, index) => {
-      const color = `hsl(${index * 60}, 70%, 50%)`
-      const tasks = functionality.tasks.map((task) => ({
-        x: task.name,
-        y: functionality.name,
-        start: new Date(props.startDate),
-        end: new Date(
-          new Date(props.startDate).getTime() +
-            (task.frontendHours + task.backendHours) * 60 * 60 * 1000
-        )
-      }))
+  // Destruir el gráfico anterior si existe para evitar reutilizar el canvas
+  if (ganttChartInstance) {
+    ganttChartInstance.destroy();
+  }
+
+  const datasets = props.functionalities.map((functionality, index) => {
+    const color = `hsl(${index * 60}, 70%, 50%)`; // Generar un color diferente para cada funcionalidad
+    const tasks = functionality.tasks.map(task => {
+      const start = new Date(props.startDate);
+      const end = new Date(start.getTime() + (task.frontendHours + task.backendHours) * 60 * 60 * 1000);
 
       return {
-        label: functionality.name,
-        data: tasks.map((task) => ({
-          x: [task.start, task.end],
-          y: functionality.name
-        })),
-        backgroundColor: color,
-        borderColor: color,
-        borderWidth: 1,
-        fill: true
-      }
-    })
+        x: [start, end],
+        y: functionality.name,
+      };
+    });
 
-    new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: props.functionalities.map((f) => f.name),
-        datasets: datasets
-      },
-      options: {
-        indexAxis: 'y',
-        scales: {
-          x: {
-            type: 'time',
-            time: {
-              unit: 'day'
-            },
-            title: {
-              display: true,
-              text: 'Tiempo'
-            }
+    return {
+      label: functionality.name,
+      data: tasks,
+      backgroundColor: color,
+      borderColor: color,
+      borderWidth: 1,
+      fill: false,
+    };
+  });
+
+  ganttChartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      datasets: datasets,
+    },
+    options: {
+      indexAxis: 'y',
+      scales: {
+        x: {
+          type: 'time',  // Usa la escala de tiempo
+          time: {
+            unit: 'day',  // Configura la unidad de tiempo para los días
           },
-          y: {
-            title: {
-              display: true,
-              text: 'Funcionalidades'
-            }
-          }
+          title: {
+            display: true,
+            text: 'Fecha',
+          },
         },
-        plugins: {
-          legend: {
-            display: true
+        y: {
+          title: {
+            display: true,
+            text: 'Funcionalidades',
           },
-          datalabels: {
-            display: false
-          }
-        }
+        },
       },
-      plugins: [ChartDataLabels]
-    })
+      plugins: {
+        legend: {
+          display: true,
+        },
+        datalabels: {
+          display: false,
+        },
+      },
+    },
+    plugins: [ChartDataLabels],
+  });
+};
+
+onMounted(() => {
+  if (props.functionalities.length > 0) {
+    renderGanttChart();
   }
-})
+});
+
+// Watch para actualizar el gráfico cuando las props cambian
+watch(
+  () => props.functionalities, 
+  () => {
+    renderGanttChart();
+  }, 
+  { deep: true }
+);
 
 watch(
-  () => [props.functionalities, props.startDate],
-  () => {}
-)
+  () => props.startDate, 
+  () => {
+    renderGanttChart();
+  }
+);
+
+// Destruir el gráfico al desmontar el componente para liberar recursos
+onBeforeUnmount(() => {
+  if (ganttChartInstance) {
+    ganttChartInstance.destroy();
+  }
+});
 </script>

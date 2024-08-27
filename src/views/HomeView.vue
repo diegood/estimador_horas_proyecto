@@ -1,7 +1,7 @@
 <template>
   <div class="mx-auto p-4 w-full grid grid-cols-2 gap-4">
     <h1 class="text-3xl font-bold mb-6 text-gray-800 col-span-2">
-      Estición de
+      Estimación de
       <input
         type="text"
         v-model="projectName"
@@ -238,6 +238,7 @@ const projectName = ref('')
 const newFunctionality = ref({ name: '' })
 const newTask = ref({ name: '', frontendHours: 0, backendHours: 0 })
 
+
 const addFunctionality = () => {
   functionalities.value.push({
     id: Date.now(),
@@ -249,7 +250,7 @@ const addFunctionality = () => {
 }
 
 const addTask = (functionalityId) => {
-  const functionality = functionalities.value.find((f) => f.id === functionalityId)
+  const functionality = functionalities.value.find(f => f.id === functionalityId)
   if (functionality) {
     functionality.tasks.push({
       id: Date.now(),
@@ -263,17 +264,14 @@ const addTask = (functionalityId) => {
 }
 
 const toggleFunctionality = (id) => {
-  const functionality = functionalities.value.find((f) => f.id === id)
+  const functionality = functionalities.value.find(f => f.id === id)
   if (functionality) {
     functionality.isExpanded = !functionality.isExpanded
   }
 }
 
 const calculateFunctionalityHours = (functionality) => {
-  return functionality.tasks.reduce(
-    (total, task) => total + task.frontendHours + task.backendHours,
-    0
-  )
+  return functionality.tasks.reduce((total, task) => total + task.frontendHours + task.backendHours, 0)
 }
 
 const calculateFunctionalityFrontendHours = (functionality) => {
@@ -285,27 +283,18 @@ const calculateFunctionalityBackendHours = (functionality) => {
 }
 
 const frontendHours = computed(() => {
-  return functionalities.value.reduce(
-    (total, functionality) => total + calculateFunctionalityFrontendHours(functionality),
-    0
-  )
+  return functionalities.value.reduce((total, functionality) => total + calculateFunctionalityFrontendHours(functionality), 0)
 })
 
 const backendHours = computed(() => {
-  return functionalities.value.reduce(
-    (total, functionality) => total + calculateFunctionalityBackendHours(functionality),
-    0
-  )
+  return functionalities.value.reduce((total, functionality) => total + calculateFunctionalityBackendHours(functionality), 0)
 })
 
 const recurringEventHours = computed(() => {
   return recurringEvents.value.reduce((total, event) => {
-    const weeklyHours =
-      event.frequency === 'diario'
-        ? event.hours * 5
-        : event.frequency === 'semanal'
-          ? event.hours
-          : event.hours / 4 // mensual
+    const weeklyHours = event.frequency === 'diario' ? event.hours * 5 :
+                        event.frequency === 'semanal' ? event.hours :
+                        event.hours / 4 // mensual
     return total + weeklyHours
   }, 0)
 })
@@ -315,14 +304,14 @@ const totalHours = computed(() => {
 })
 
 const estimatedFrontendDays = computed(() => {
-  return resources.value.frontend > 0
-    ? Math.ceil(frontendHours.value / (WORKING_HOURS * resources.value.frontend))
+  return resources.value.frontend > 0 
+    ? Math.ceil(frontendHours.value / (WORKING_HOURS  * resources.value.frontend)) 
     : Infinity
 })
 
 const estimatedBackendDays = computed(() => {
-  return resources.value.backend > 0
-    ? Math.ceil(backendHours.value / (WORKING_HOURS * resources.value.backend))
+  return resources.value.backend > 0 
+    ? Math.ceil(backendHours.value / (WORKING_HOURS  * resources.value.backend)) 
     : Infinity
 })
 
@@ -343,65 +332,65 @@ const formattedStartDate = computed(() => {
 })
 
 const estimatedEndDate = computed(() => {
-  let endDate = new Date(startDate.value)
-  let daysToAdd = estimatedWorkDays.value + Number(nonWorkingDays.value)
+  let endDate = new Date(startDate.value);
+  let daysToAdd = estimatedWorkDays.value + Number(nonWorkingDays.value);
 
   // Agrega los días de trabajo calculados
   while (daysToAdd > 0) {
-    endDate.setDate(endDate.getDate() + 1)
-    if (endDate.getDay() !== 0 && endDate.getDay() !== 6) {
-      // No es sábado ni domingo
-      daysToAdd--
+    endDate.setDate(endDate.getDate() + 1);
+    if (endDate.getDay() !== 0 && endDate.getDay() !== 6) { // No es sábado ni domingo
+      daysToAdd--;
     }
   }
 
-  let additionalDaysFromRecurringEvents = Math.ceil(
-    (recurringEventHours.value * estimatedWeeks.value) / WORKING_HOURS
-  )
-
+  let additionalDaysFromRecurringEvents = Math.ceil((recurringEventHours.value * estimatedWeeks.value) / WORKING_HOURS);
+  
   while (additionalDaysFromRecurringEvents > 0) {
-    endDate.setDate(endDate.getDate() + 1)
-    if (endDate.getDay() !== 0 && endDate.getDay() !== 6) {
-      // No es sábado ni domingo
-      additionalDaysFromRecurringEvents--
+    endDate.setDate(endDate.getDate() + 1);
+    if (endDate.getDay() !== 0 && endDate.getDay() !== 6) { // No es sábado ni domingo
+      additionalDaysFromRecurringEvents--;
     }
   }
 
-  return endDate.toLocaleDateString()
-})
+  return endDate.toLocaleDateString();
+});
+
 
 const exportCSV = () => {
-  const header = 'Funcionalidad,Tarea,Horas Frontend,Horas Backend\n'
-  let csvContent = 'data:text/csv;charset=utf-8,'
+  const header = "Funcionalidad,Tarea,Horas Frontend,Horas Backend\n";
+  let csvContent = "data:text/csv;charset=utf-8,";
 
-  csvContent += header
+  csvContent += header;
 
-  functionalities.value.forEach((functionality) => {
-    functionality.tasks.forEach((task) => {
-      csvContent += `${functionality.name},${task.name},${task.frontendHours},${task.backendHours}\n`
-    })
-  })
+  functionalities.value.forEach(functionality => {
+    functionality.tasks.forEach(task => {
+      csvContent += `${functionality.name},${task.name},${task.frontendHours},${task.backendHours}\n`;
+    });
+  });
 
-  csvContent += `\n,,Total Horas Frontend,${frontendHours.value}\n`
-  csvContent += `,,Total Horas Backend,${backendHours.value}\n`
-  csvContent += `,,Total Horas Eventos Recurrentes,${recurringEventHours.value}\n`
-  csvContent += `,,Total Horas,${totalHours.value}\n`
-  csvContent += `,,Estimado en Semanas,${estimatedWeeks.value}\n`
-  csvContent += `,,Estimado en Meses,${estimatedMonths.value}\n`
-  csvContent += `,,Fecha Estimada de Finalización,${estimatedEndDate.value}\n`
+  csvContent += `\n,,Total Horas Frontend,${frontendHours.value}\n`;
+  csvContent += `,,Total Horas Backend,${backendHours.value}\n`;
+  csvContent += `,,Total Horas Eventos Recurrentes,${recurringEventHours.value}\n`;
+  csvContent += `,,Total Horas,${totalHours.value}\n`;
+  csvContent += `,,Estimado en Semanas,${estimatedWeeks.value}\n`;
+  csvContent += `,,Estimado en Meses,${estimatedMonths.value}\n`;
+  csvContent += `,,Fecha Estimada de Finalización,${estimatedEndDate.value}\n`;
 
-  downloadCSV(csvContent)
-}
+  downloadCSV(csvContent);
+};
 
 const downloadCSV = (csvContent) => {
-  const encodedUri = encodeURI(csvContent)
-  const link = document.createElement('a')
-  link.setAttribute('href', encodedUri)
-  link.setAttribute('download', `estimacion ${projectName.value}.csv`)
-  link.click()
-}
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", `estimacion ${projectName.value}.csv`);
+  link.click();
+};
 
-const recalculateEstimation = () => {}
+
+const recalculateEstimation = () => {
+}
 
 watch([resources, startDate, nonWorkingDays, recurringEvents], recalculateEstimation)
 </script>
+
