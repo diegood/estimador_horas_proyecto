@@ -17,6 +17,7 @@ const props = defineProps({
 
 let ganttChartInstance = null; // Mantiene una referencia al gráfico
 
+
 const renderGanttChart = () => {
   const ctx = document.getElementById('ganttChart').getContext('2d')
 
@@ -24,28 +25,18 @@ const renderGanttChart = () => {
   if (ganttChartInstance) {
     ganttChartInstance.destroy();
   }
+const datasets = props.functionalities.flatMap((functionality, index) => {
+  const color = `hsl(${index * 60}, 70%, 50%)`; // Generar un color único
+  return functionality.tasks.map(task => ({
+    x: [new Date(task.startDate), new Date(task.endDate)],
+    y: functionality.name,
+    backgroundColor: color,
+    borderColor: color,
+    borderWidth: 1,
+    fill: false,
+  }));
+});
 
-  const datasets = props.functionalities.map((functionality, index) => {
-    const color = `hsl(${index * 60}, 70%, 50%)`; // Generar un color diferente para cada funcionalidad
-    const tasks = functionality.tasks.map(task => {
-      const start = new Date(props.startDate);
-      const end = new Date(start.getTime() + (task.frontendHours + task.backendHours) * 60 * 60 * 1000);
-
-      return {
-        x: [start, end],
-        y: functionality.name,
-      };
-    });
-
-    return {
-      label: functionality.name,
-      data: tasks,
-      backgroundColor: color,
-      borderColor: color,
-      borderWidth: 1,
-      fill: false,
-    };
-  });
 
   ganttChartInstance = new Chart(ctx, {
     type: 'bar',
@@ -84,6 +75,7 @@ const renderGanttChart = () => {
     plugins: [ChartDataLabels],
   });
 };
+
 
 onMounted(() => {
   if (props.functionalities.length > 0) {
