@@ -1,85 +1,58 @@
 <template>
-  <div>
-    <canvas id="ganttChart"></canvas>
-  </div>
+  <g-gantt-chart
+    chart-start="2021-07-12 12:00"
+    chart-end="2021-07-14 12:00"
+    precision="hour"
+    bar-start="myBeginDate"
+    bar-end="myEndDate"
+  >
+    <g-gantt-row label="My row 1" :bars="row1BarList" />
+    <g-gantt-row label="My row 2" :bars="row2BarList" />
+  </g-gantt-chart>
 </template>
 
 <script setup>
 import { onMounted, ref, watch, onBeforeUnmount } from 'vue'
-import Chart from 'chart.js/auto'
-import ChartDataLabels from 'chartjs-plugin-datalabels'
-import 'chartjs-adapter-date-fns'  // Importa el adaptador de fechas
 
 const props = defineProps({
   functionalities: Array,
   startDate: String
 })
 
-let ganttChartInstance = null; // Mantiene una referencia al gráfico
-
-
-const renderGanttChart = () => {
-  const ctx = document.getElementById('ganttChart').getContext('2d')
-
-  // Destruir el gráfico anterior si existe para evitar reutilizar el canvas
-  if (ganttChartInstance) {
-    ganttChartInstance.destroy();
+const row1BarList = ref([
+  {
+    myBeginDate: "2021-07-13 13:00",
+    myEndDate: "2021-07-13 19:00",
+    ganttBarConfig: {
+      // each bar must have a nested ganttBarConfig object ...
+      id: "unique-id-1", // ... and a unique "id" property
+      label: "Lorem ipsum dolor"
+    }
   }
-const datasets = props.functionalities.flatMap((functionality, index) => {
-  const color = `hsl(${index * 60}, 70%, 50%)`; // Generar un color único
-  return functionality.tasks.map(task => ({
-    x: [new Date(task.startDate), new Date(task.endDate)],
-    y: functionality.name,
-    backgroundColor: color,
-    borderColor: color,
-    borderWidth: 1,
-    fill: false,
-  }));
-});
+])
+const row2BarList = ref([
+  {
+    myBeginDate: "2021-07-13 00:00",
+    myEndDate: "2021-07-14 02:00",
+    ganttBarConfig: {
+      id: "another-unique-id-2",
+      hasHandles: true,
+      label: "Hey, look at me",
+      style: {
+        // arbitrary CSS styling for your bar
+        background: "#e09b69",
+        borderRadius: "20px",
+        color: "black"
+      }
+    }
+  }
+])
 
-
-  ganttChartInstance = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      datasets: datasets,
-    },
-    options: {
-      indexAxis: 'y',
-      scales: {
-        x: {
-          type: 'time',  // Usa la escala de tiempo
-          time: {
-            unit: 'day',  // Configura la unidad de tiempo para los días
-          },
-          title: {
-            display: true,
-            text: 'Fecha',
-          },
-        },
-        y: {
-          title: {
-            display: true,
-            text: 'Funcionalidades',
-          },
-        },
-      },
-      plugins: {
-        legend: {
-          display: true,
-        },
-        datalabels: {
-          display: false,
-        },
-      },
-    },
-    plugins: [ChartDataLabels],
-  });
-};
 
 
 onMounted(() => {
   if (props.functionalities.length > 0) {
-    renderGanttChart();
+    // renderGanttChart();
   }
 });
 
@@ -87,7 +60,7 @@ onMounted(() => {
 watch(
   () => props.functionalities, 
   () => {
-    renderGanttChart();
+    // renderGanttChart();
   }, 
   { deep: true }
 );
@@ -95,14 +68,14 @@ watch(
 watch(
   () => props.startDate, 
   () => {
-    renderGanttChart();
+    // renderGanttChart();
   }
 );
 
 // Destruir el gráfico al desmontar el componente para liberar recursos
 onBeforeUnmount(() => {
-  if (ganttChartInstance) {
-    ganttChartInstance.destroy();
-  }
+  // if (ganttChartInstance) {
+  //   ganttChartInstance.destroy();
+  // }
 });
 </script>

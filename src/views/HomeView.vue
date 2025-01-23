@@ -113,6 +113,7 @@
                               <label class="block text-sm font-medium text-gray-700">Horas {{ category }}</label>
                               <input
                                 v-model.number="task.hours[category]"
+                                @change="recalculateTaskDates(functionality, task)"
                                 type="number"
                                 step="0.5"
                                 min="0"
@@ -210,8 +211,8 @@
     <section>
       <div class="mb-4 p-4 bg-gray-100 rounded">
         <h2 class="text-lg font-semibold text-gray-700">Categorías del Proyecto</h2>
-        <ul class="mt-2 space-y-2">
-          <li v-for="(category, index) in categories" :key="index" class="flex items-center">
+        <div class="grid gap-2 grid-cols-4">
+          <div v-for="(category, index) in categories" :key="index" class="flex items-center">
             <span class="text-gray-700">{{ category }}</span>
             <button
               @click="removeCategory(index)"
@@ -219,8 +220,8 @@
             >
               Eliminar
             </button>
-          </li>
-        </ul>
+          </div>
+        </div>
         <form @submit.prevent="addCategory" class="mt-4 flex">
           <input
             v-model="newCategory"
@@ -242,28 +243,30 @@
       />
       <div class="mb-6 p-4 bg-gray-100 rounded-lg shadow">
         <h2 class="text-xl font-semibold mb-2 text-gray-700">Configuración del Proyecto</h2>
-        <div v-for="category in categories" :key="category" class="mb-4">
-          <label class="block text-sm font-medium text-gray-700">{{ category }} FT</label>
-          <input
-            :value="resources[category] || 1"
-            @input="(resources.value[category] = parseFloat($event.target.value) || 1)"
-            type="number"
-            step="0.1"
-            min="0"
-            class="mt-1 block w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
-            required
-          />
-        </div>
-
-        <div>
-            <label class="block text-sm font-medium text-gray-700">Fecha de inicio</label>
+        <div class="grid grid-cols-4 gap-4">
+          <div v-for="category in categories" :key="category" class="mb-4">
+            <label class="block text-sm font-medium text-gray-700">{{ category }} FT</label>
             <input
-              v-model="startDate"
-              type="date"
-              @input="recalculateEstimation"
+              :value="resources[category] || 1"
+              @input="(resources.value[category] = parseFloat($event.target.value) || 1)"
+              type="number"
+              step="0.1"
+              min="0"
               class="mt-1 block w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
               required
             />
+          </div>
+        </div>
+        <div class="grid grid-cols-4 gap-4">
+          <div>
+              <label class="block text-sm font-medium text-gray-700">Fecha de inicio</label>
+              <input
+                v-model="startDate"
+                type="date"
+                @input="recalculateEstimation"
+                class="mt-1 block w-full p-2 border rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
+                required
+              />
           </div>
           <div>
             <label class="block text-sm font-medium text-gray-700">Días no laborables</label>
@@ -276,6 +279,7 @@
               required
             />
           </div>
+        </div>
 
       </div>
 
@@ -332,7 +336,7 @@ import GanttChart from './components/GanttChart.vue'
 
 const WORKING_HOURS = 8
 const functionalities = ref([])
-const startDate = ref(new Date().toISOString().split('T')[0])
+const startDate = ref(dayjs().format('YYYY-MM-DD'))
 const nonWorkingDays = ref(0)
 const recurringEvents = ref([])
 const projectName = ref('')
@@ -369,28 +373,38 @@ const addFunctionality = () => {
 };
 
 
+
+
 const addTask = (functionalityId) => {
   const functionality = functionalities.value.find(f => f.id === functionalityId);
 
   if (functionality) {
-    const hours = reactive(categories.value.reduce((acc, category) => {
-      acc[category] = 0;
-      return acc;
-    }, {}));
-
-    const startDate = calculateTaskStartDate(functionality, Object.keys(hours)[0]);
-
-
-    const endDate = new Date(startDate.getTime() + calculateTaskHours(hours) * 60 * 60 * 1000);
-
-    functionality.tasks.push({
+    const task = {
       id: Date.now(),
       name: newTask.value.name,
-      hours,
-      startDate: startDate.toISOString(),
-      endDate: endDate.toISOString(),
+      hours: { ...newTask.value.hours }, // Copia las horas por categoría
+      startDate: null,
+      endDate: null,
       isEditing: true,
+    };
+
+    let taskStartDate = new Date(functionality.startDate);
+    let taskEndDate = new Date(functionality.startDate);
+
+    Object.entries(task.hours).forEach(([category, hours]) => {
+      if (hours > 0) {
+        const categoryStartDate = calculateTaskStartDate(functionality, category); // Inicio según la última tarea de esta categoría
+        const categoryEndDate = calculateTaskEndDate(categoryStartDate, hours, category); // Fin de la tarea
+
+        taskStartDate = taskStartDate > categoryStartDate ? taskStartDate : categoryStartDate; // La tarea comienza al inicio más tardío
+        taskEndDate = taskEndDate > categoryEndDate ? taskEndDate : categoryEndDate; // La tarea termina al fin más tardío
+      }
     });
+
+    task.startDate = taskStartDate.toISOString();
+    task.endDate = taskEndDate.toISOString();
+
+    functionality.tasks.push(task);
 
     newTask.value = {
       name: '',
@@ -403,8 +417,29 @@ const addTask = (functionalityId) => {
 };
 
 const calculateTaskStartDate = (functionality, category) => {
-  const lastTask = functionality.tasks.filter(task => task.hours[category] > 0).slice(-1)[0];
-  return lastTask ? new Date(lastTask.endDate) : new Date(functionality.startDate);
+  const lastTaskInCategory = functionality.tasks
+    .filter(task => task.hours[category] > 0) // Solo tareas con horas en esta categoría
+    .sort((a, b) => new Date(a.endDate) - new Date(b.endDate))
+    .slice(-1)[0]; // Última tarea en esta categoría
+
+  return lastTaskInCategory
+    ? new Date(lastTaskInCategory.endDate) // La tarea empieza justo después de la última
+    : new Date(functionality.startDate); // Empieza al inicio de la funcionalidad si no hay tarea previa
+};
+
+const calculateTaskEndDate = (startDate, hours, category) => {
+  const resource = resources.value[category] || 1; // Recursos asignados a esta categoría
+  const daysNeeded = Math.ceil(hours / (WORKING_HOURS * resource)); // Días necesarios
+  const endDate = new Date(startDate);
+
+  let workingDaysAdded = 0;
+  while (workingDaysAdded < daysNeeded) {
+    endDate.setDate(endDate.getDate() + 1);
+    if (endDate.getDay() !== 0 && endDate.getDay() !== 6) {
+      workingDaysAdded++;
+    }
+  }
+  return endDate;
 };
 
 
@@ -413,14 +448,12 @@ const calculateTaskHours = (hours) => {
 };
 
 
-
 const deleteTask = (functionalityId, taskId) => {
   const functionality = functionalities.value.find(f => f.id === functionalityId);
   if (functionality) {
     functionality.tasks = functionality.tasks.filter(task => task.id !== taskId);
   }
 };
-
 
 
 const editFunctionality = (id) => {
@@ -591,6 +624,24 @@ const downloadCSV = (csvContent) => {
 
 const recalculateEstimation = () => {
 }
+
+const recalculateTaskDates = (functionality, task) => {
+  let taskStartDate = new Date(functionality.startDate);
+  let taskEndDate = new Date(functionality.startDate);
+
+  Object.entries(task.hours).forEach(([category, hours]) => {
+    if (hours > 0) {
+      const categoryStartDate = calculateTaskStartDate(functionality, category);
+      const categoryEndDate = calculateTaskEndDate(categoryStartDate, hours, category);
+
+      taskStartDate = taskStartDate > categoryStartDate ? taskStartDate : categoryStartDate;
+      taskEndDate = taskEndDate > categoryEndDate ? taskEndDate : categoryEndDate;
+    }
+  });
+  task.startDate = taskStartDate.toISOString();
+  task.endDate = taskEndDate.toISOString();
+};
+
 
 watch([functionalities, categories, resources], recalculateEstimation, {
   deep: true,
