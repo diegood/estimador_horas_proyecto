@@ -5,6 +5,7 @@
       <input
         type="text"
         v-model="projectName"
+        @input="$emit('update:project-data', { ...projectData, name: projectName })"
         placeholder="Nombre del proyecto"
         class="p-2 border-0 rounded focus:ring-2 focus:ring-blue-300 focus:border-blue-300"
         required
@@ -248,7 +249,7 @@
             <label class="block text-sm font-medium text-gray-700">{{ category }} FT</label>
             <input
               :value="resources[category] || 1"
-              @input="(resources.value[category] = parseFloat($event.target.value) || 1)"
+              @input="resources[category] = parseFloat($event.target.value) || 1"
               type="number"
               step="0.1"
               min="0"
@@ -323,7 +324,7 @@
     </section>
     <section class="col-span-2 mt-8">
       <h2 class="text-xl font-semibold mb-4 text-gray-800">Gráfico Gantt del Proyecto</h2>
-      <GanttChart :functionalities="functionalities" :startDate="startDate" />
+      <GanttChart :functionalities="functionalities" :startDate="startDate"  @update-tasks="handleTasksUpdate"/>
     </section>
   </div>
 </template>
@@ -335,15 +336,22 @@ import ReccuringEventsCard from './components/ReccuringEventsCard.vue'
 import GanttChart from './components/GanttChart.vue'
 
 const WORKING_HOURS = 8
-const functionalities = ref([])
-const startDate = ref(dayjs().format('YYYY-MM-DD'))
-const nonWorkingDays = ref(0)
-const recurringEvents = ref([])
-const projectName = ref('')
+const props = defineProps({
+  projectData: {
+    type: Object,
+    required: true
+  }
+});
+
+const functionalities = ref(props.projectData.functionalities || []);
+const startDate = ref(props.projectData.startDate || dayjs().format('YYYY-MM-DD'));
+const categories = ref(props.projectData.categories || ['Front-end', 'Back-end']);
+const recurringEvents = ref(props.projectData.recurringEvents || []);
+const projectName = ref(props.projectData.name || '');
+const nonWorkingDays = ref(0);
 
 const newFunctionality = ref({ name: '' })
 
-const categories = ref(['Front-end', 'Back-end']);
 const newCategory = ref('');
 const resources = ref({});
 
@@ -355,6 +363,10 @@ const newTask = ref({
   }, {})
 });
 
+
+const handleTasksUpdate = (updatedFunctionalities) => {
+  functionalities.value = updatedFunctionalities;
+};
 
 const addFunctionality = () => {
   const lastEndDate = functionalities.value.length > 0
@@ -377,17 +389,16 @@ const addFunctionality = () => {
 
 const addTask = (functionalityId) => {
   const functionality = functionalities.value.find(f => f.id === functionalityId);
-
   if (functionality) {
-    const task = {
+    const task = reactive({
       id: Date.now(),
       name: newTask.value.name,
-      hours: { ...newTask.value.hours }, // Copia las horas por categoría
+      hours: { ...newTask.value.hours },
       startDate: null,
       endDate: null,
-      isEditing: true,
-    };
-
+      isEditing: true
+    });
+    
     let taskStartDate = new Date(functionality.startDate);
     let taskEndDate = new Date(functionality.startDate);
 
@@ -427,16 +438,19 @@ const calculateTaskStartDate = (functionality, category) => {
     : new Date(functionality.startDate); // Empieza al inicio de la funcionalidad si no hay tarea previa
 };
 
-const calculateTaskEndDate = (startDate, hours, category) => {
-  const resource = resources.value[category] || 1; // Recursos asignados a esta categoría
-  const daysNeeded = Math.ceil(hours / (WORKING_HOURS * resource)); // Días necesarios
-  const endDate = new Date(startDate);
 
+const calculateTaskEndDate = (startDate, hours, category) => {
+  const resource = resources.value[category] || 1;
+  const daysNeeded = Math.ceil(hours / (WORKING_HOURS * resource));
+  let endDate = new Date(startDate);
   let workingDaysAdded = 0;
+  
   while (workingDaysAdded < daysNeeded) {
-    endDate.setDate(endDate.getDate() + 1);
     if (endDate.getDay() !== 0 && endDate.getDay() !== 6) {
       workingDaysAdded++;
+    }
+    if (workingDaysAdded < daysNeeded) {
+      endDate.setDate(endDate.getDate() + 1);
     }
   }
   return endDate;
@@ -643,9 +657,17 @@ const recalculateTaskDates = (functionality, task) => {
 };
 
 
-watch([functionalities, categories, resources], recalculateEstimation, {
-  deep: true,
-});
+const emit = defineEmits(['update:project-data'])
+
+watch([functionalities, categories, resources, recurringEvents, projectName, startDate], () => {
+  emit('update:project-data', {
+    name: projectName.value,
+    functionalities: functionalities.value,
+    startDate: startDate.value,
+    categories: categories.value,
+    recurringEvents: recurringEvents.value
+  });
+}, { deep: true });
 
 watch(
   categories,
